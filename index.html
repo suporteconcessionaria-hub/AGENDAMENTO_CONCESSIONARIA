@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTM • Manutenção Veicular</title>
+
+  <style>
+    :root{
+      --sidebar:#075d64; --sidebar-2:#064e54;
+      --text:#0f172a; --muted:#64748b;
+      --bg:#f3f6f8; --card:#ffffff; --line:#e5e7eb;
+      --accent:#22c55e; --accent-2:#16a34a;
+      --shadow: 0 10px 30px rgba(2,6,23,.08);
+      --radius: 14px;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--text); background:var(--bg); }
+    .app{ display:flex; min-height:100vh; }
+    .sidebar{ width:280px; background:linear-gradient(180deg,var(--sidebar),var(--sidebar-2)); color:#e8f7f7; padding:18px 14px; position:sticky; top:0; height:100vh; }
+    .brand{ display:flex; align-items:center; gap:12px; padding:10px 10px 14px; border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:12px; }
+    .brand .mark{ width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.10);display:grid;place-items:center;overflow:hidden; }
+    .brand .mark img{ width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.20)); }
+    .brand .word img{ height:26px; object-fit:contain; display:block; }
+    .brand small{ display:block; font-size:12px; opacity:.85; margin-top:4px; }
+    .menu{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+    .menu-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; opacity:.75; padding:10px 10px 6px; }
+    .menu button{ all:unset; cursor:pointer; padding:11px 12px; border-radius:12px; display:flex; align-items:center; gap:10px; color:#e8f7f7; font-size:13px; transition:.15s; }
+    .menu button:hover{ background:rgba(255,255,255,.10); }
+    .menu button.active{ background:rgba(255,255,255,.14); outline:2px solid rgba(34,197,94,.35); }
+    .dot{ width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,.35); }
+    .menu button.active .dot{ background:var(--accent); box-shadow:0 0 0 4px rgba(34,197,94,.20); }
+
+    .main{ flex:1; padding:22px; }
+    .wrap{ max-width:1100px; margin:0 auto; }
+    .topbar{ margin-bottom:16px; }
+    .topbar h2{ margin:0; font-size:18px; }
+    .topbar p{ margin:4px 0 0; color:var(--muted); font-size:13px; }
+
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .card-body{ padding:16px; }
+
+    form{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
+    .field{ grid-column:span 6; display:flex; flex-direction:column; gap:6px; }
+    .field.col-12{ grid-column:span 12; }
+    .field.col-4{ grid-column:span 4; }
+    .field.col-3{ grid-column:span 3; }
+    .field.col-2{ grid-column:span 2; }
+
+    label{ font-size:12px; color:#334155; font-weight:650; }
+    input,select,textarea{ width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:12px; outline:none; font-size:13px; }
+    textarea{ min-height:96px; resize:vertical; }
+    input:focus,select:focus,textarea:focus{ border-color:rgba(34,197,94,.55); box-shadow:0 0 0 4px rgba(34,197,94,.15); }
+
+    .actions{ grid-column:span 12; display:flex; gap:10px; justify-content:flex-end; padding-top:6px; border-top:1px dashed var(--line); margin-top:4px; }
+    .btn{ border:0; border-radius:12px; padding:11px 14px; cursor:pointer; font-weight:750; font-size:13px; }
+    .btn.primary{ background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#fff; }
+    .btn.ghost{ background:#f1f5f9; border:1px solid var(--line); }
+
+    .codebox{ display:none; margin-top:14px; padding:12px; border-radius:12px; background:#ecfeff; border:1px solid #67e8f9; font-weight:700; }
+    .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
+    .codebox .big{ font-size:18px; letter-spacing:.3px; }
+
+    .searchbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .searchbar input{ flex:1; min-width:240px; }
+    .result{ margin-top:14px; display:none; padding:14px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+    .status-chip{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; font-weight:800; font-size:13px; border:1px solid var(--line); background:#f8fafc; }
+    .chip-dot{ width:10px;height:10px;border-radius:50%; background:#94a3b8; }
+    .ok .chip-dot{ background: var(--accent); }
+    .wait .chip-dot{ background: #f59e0b; }
+
+    .whatsapp-float{ position:fixed; bottom:20px; right:20px; width:56px; height:56px; background:#25D366; border-radius:50%; box-shadow:0 8px 20px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; z-index:9999; text-decoration:none; }
+    .whatsapp-float img{ width:28px; height:28px; }
+
+    @media (max-width:980px){
+      .sidebar{ width:240px; }
+      .field,.field.col-4,.field.col-3,.field.col-2{ grid-column:span 12; }
+    }
+    @media (max-width:760px){
+      .app{ flex-direction:column; }
+      .sidebar{ width:100%; height:auto; position:relative; }
+      .main{ padding:14px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark"><img src="gtm-icon.png" alt="GTM ícone" /></div>
+        <div class="word">
+          <img src="gtm-text.png" alt="GTM" />
+          <small>Manutenção Veicular</small>
+        </div>
+      </div>
+
+      <div class="menu">
+        <div class="menu-title">Menu</div>
+
+        <button class="active" data-view="agendamento">
+          <span class="dot"></span>
+          Agendamento Concessionária
+        </button>
+
+        <button data-view="status">
+          <span class="dot"></span>
+          Status do Agendamento
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="wrap">
+        <div class="topbar">
+          <h2 id="pageTitle">Agendamento Concessionária</h2>
+          <p id="pageSub">Preencha as informações do pedido de manutenção.</p>
+        </div>
+
+        <!-- AGENDAMENTO -->
+        <section id="view-agendamento" class="card">
+          <div class="card-body">
+            <form id="formAgendamento">
+              <div class="field col-3">
+                <label>Data solicitada</label>
+                <input name="DATA_SOLICITADA" type="date" required />
+              </div>
+
+              <div class="field col-9">
+                <label>Nome do solicitante</label>
+                <input name="NOME_SOLICITANTE" type="text" required />
+              </div>
+
+              <div class="field col-4">
+                <label>Município</label>
+                <input name="MUNICIPIO" type="text" required />
+              </div>
+
+              <div class="field col-6">
+                <label>Secretaria</label>
+                <input name="SECRETARIA" type="text" required />
+              </div>
+
+              <div class="field col-2">
+                <label>UF</label>
+                <select name="UF" required>
+                  <option value="" selected disabled>Selecione</option>
+                  <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                  <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                  <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                  <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                  <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                  <option>SE</option><option>TO</option>
+                </select>
+              </div>
+
+              <div class="field col-6">
+                <label>E-mail</label>
+                <input name="EMAIL" type="email" required />
+              </div>
+
+              <div class="field col-6">
+                <label>Telefone</label>
+                <input name="TELEFONE" type="tel" required />
+              </div>
+
+              <div class="field col-4">
+                <label>Placa</label>
+                <input name="PLACA" type="text" required />
+              </div>
+
+              <div class="field col-4">
+                <label>Km atual</label>
+                <input name="KM_ATUAL" type="number" min="0" step="1" required />
+              </div>
+
+              <div class="field col-4">
+                <label>Concessionária</label>
+                <input name="CONCESSIONARIA" type="text" required />
+              </div>
+
+              <div class="field col-4">
+                <label>Tipo de serviço</label>
+                <select name="TIPO_SERVICO" required>
+                  <option value="" selected disabled>Selecione</option>
+                  <option value="Revisão">Revisão</option>
+                  <option value="Manutenção">Manutenção</option>
+                  <option value="Garantia">Garantia</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+
+              <div class="field col-12">
+                <label>Descrição</label>
+                <textarea name="SERVICOS" required></textarea>
+              </div>
+
+              <div class="field col-4">
+                <label>Nº OS</label>
+                <input name="N_OS" type="text" required />
+              </div>
+
+              <div class="actions">
+                <button type="button" class="btn ghost" id="btnLimpar">Limpar</button>
+                <button type="submit" class="btn primary" id="btnSalvar">Salvar agendamento</button>
+              </div>
+            </form>
+
+            <div id="codigoAgendamento" class="codebox"></div>
+          </div>
+        </section>
+
+        <!-- STATUS DO AGENDAMENTO -->
+        <section id="view-status" class="card" style="display:none;">
+          <div class="card-body">
+            <div class="searchbar">
+              <input id="buscarId" type="text" placeholder="Digite o código do agendamento (ID)" />
+              <button class="btn primary" id="btnBuscar" type="button">Buscar</button>
+            </div>
+            <div id="resultadoBox" class="result"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <iframe name="gtm_iframe" style="display:none;"></iframe>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxCgoNSmMbBgE0-DvWiPZPqEz-4EYTf5tJWs2orxTGugoJ8vmn7jDWI35zjVKRgfQ/exec";
+
+    const buttons = document.querySelectorAll(".menu button");
+    const views = {
+      agendamento: document.getElementById("view-agendamento"),
+      status: document.getElementById("view-status"),
+    };
+    const pageTitle = document.getElementById("pageTitle");
+    const pageSub = document.getElementById("pageSub");
+
+    function setView(name){
+      Object.keys(views).forEach(v => views[v].style.display = (v === name ? "block" : "none"));
+      buttons.forEach(b => b.classList.toggle("active", b.dataset.view === name));
+
+      if(name === "agendamento"){
+        pageTitle.textContent = "Agendamento Concessionária";
+        pageSub.textContent = "Preencha as informações do pedido de manutenção.";
+      } else {
+        pageTitle.textContent = "Status do Agendamento";
+        pageSub.textContent = "Consulte o status usando o código do agendamento (ID).";
+      }
+      localStorage.setItem("gtm_view", name);
+    }
+
+    buttons.forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+    const saved = localStorage.getItem("gtm_view");
+    if(saved && views[saved]) setView(saved);
+
+    function gerarId() {
+      const t = Date.now().toString(36).toUpperCase();
+      const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+      return `GTM-${t}-${r}`;
+    }
+
+    const form = document.getElementById("formAgendamento");
+    const btnLimpar = document.getElementById("btnLimpar");
+    const btnSalvar = document.getElementById("btnSalvar");
+    const codeBox = document.getElementById("codigoAgendamento");
+
+    btnLimpar.addEventListener("click", () => {
+      form.reset();
+      codeBox.style.display = "none";
+      codeBox.innerHTML = "";
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const data = Object.fromEntries(new FormData(form).entries());
+      const idGerado = gerarId();
+      data.ID = idGerado;
+
+      btnSalvar.disabled = true;
+
+      const hiddenForm = document.createElement("form");
+      hiddenForm.action = WEB_APP_URL;
+      hiddenForm.method = "POST";
+      hiddenForm.target = "gtm_iframe";
+
+      Object.keys(data).forEach((key) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = data[key];
+        hiddenForm.appendChild(input);
+      });
+
+      document.body.appendChild(hiddenForm);
+      hiddenForm.submit();
+      hiddenForm.remove();
+
+      codeBox.style.display = "block";
+      codeBox.innerHTML = `✅ Agendamento registrado.<br><span class="small">Código do agendamento:</span><br><span class="big">${idGerado}</span>`;
+
+      form.reset();
+      btnSalvar.disabled = false;
+    });
+
+    const resultadoBox = document.getElementById("resultadoBox");
+
+    function renderResultado(data){
+      resultadoBox.style.display = "block";
+      if(!data.ok){
+        resultadoBox.innerHTML = `<strong>❌ ${data.error || "Não encontrado"}</strong>`;
+        return;
+      }
+
+      const statusText = String(data.status || "").toUpperCase();
+      const isWait = statusText.includes("AGUARD") || statusText.includes("PEND") || statusText.includes("ESPER");
+      const chipClass = isWait ? "status-chip wait" : "status-chip ok";
+
+      const dataTxt = data.dataAgendada || "data ainda não definida";
+      const horaTxt = data.hora || "horário ainda não definido";
+
+      resultadoBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div class="${chipClass}">
+            <span class="chip-dot"></span>
+            <span>${data.status}</span>
+          </div>
+          <div style="color:#64748b; font-size:12px;">
+            Código: <strong>${data.id}</strong>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; font-size:14px; color:#334155;">
+          Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.
+        </div>
+      `;
+    }
+
+    function buscarPorId(id){
+      const cbName = "cb_" + Math.random().toString(36).slice(2);
+      window[cbName] = (data) => {
+        renderResultado(data);
+        delete window[cbName];
+        script.remove();
+      };
+
+      const url = `${WEB_APP_URL}?action=buscar&id=${encodeURIComponent(id)}&callback=${encodeURIComponent(cbName)}`;
+      const script = document.createElement("script");
+      script.src = url;
+      script.onerror = () => {
+        resultadoBox.style.display = "block";
+        resultadoBox.innerHTML = "<strong>❌ Erro ao buscar. Reimplante o Apps Script (Nova versão).</strong>";
+        delete window[cbName];
+        script.remove();
+      };
+      document.body.appendChild(script);
+    }
+
+    document.getElementById("btnBuscar").addEventListener("click", () => {
+      const id = document.getElementById("buscarId").value.trim();
+      if(!id) return;
+      resultadoBox.style.display = "block";
+      resultadoBox.innerHTML = "<strong>Buscando...</strong>";
+      buscarPorId(id);
+    });
+
+    document.getElementById("buscarId").addEventListener("keydown", (e) => {
+      if(e.key === "Enter"){
+        e.preventDefault();
+        document.getElementById("btnBuscar").click();
+      }
+    });
+  </script>
+
+  <a
+    href="https://wa.me/5565981750409?text=Olá,%20preciso%20de%20ajuda%20com%20um%20agendamento%20GTM."
+    target="_blank"
+    class="whatsapp-float"
+    title="Falar no WhatsApp"
+    rel="noopener"
+  >
+    <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="WhatsApp" />
+  </a>
+</body>
+</html>
