@@ -63,7 +63,12 @@
     .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
     .codebox .big{ font-size:18px; letter-spacing:.3px; }
 
-    .searchbar{ display:grid; grid-template-columns:220px 1fr 140px; gap:10px; align-items:center; }
+    /* Status */
+    .searchbar{
+      display:grid;
+      grid-template-columns:220px 1fr 140px 140px;
+      gap:10px; align-items:center;
+    }
     .result{ margin-top:14px; display:none; }
     .result .hint{ color:var(--muted); font-size:13px; margin:0 0 10px; }
 
@@ -244,7 +249,7 @@
               </div>
 
               <div class="actions">
-                <button type="button" class="btn ghost" id="btnLimpar">Limpar</button>
+                <button type="button" class="btn ghost" id="btnLimparAg">Limpar</button>
                 <button type="submit" class="btn primary" id="btnSalvar">Salvar agendamento</button>
               </div>
             </form>
@@ -265,6 +270,7 @@
 
               <input id="buscarQ" type="text" placeholder="Digite o valor da busca" />
               <button class="btn primary" id="btnBuscar" type="button">Buscar</button>
+              <button class="btn ghost" id="btnLimparStatus" type="button">Limpar</button>
             </div>
 
             <div id="resultadoBox" class="result"></div>
@@ -282,7 +288,7 @@
         <h3>Cancelar solicitação</h3>
       </header>
       <div class="content">
-        <p>Informe o motivo do cancelamento. Isso será gravado na planilha (coluna V) e a solicitação ficará em vermelho.</p>
+        <p>Informe o motivo do cancelamento.</p>
         <label>Motivo do cancelamento</label>
         <textarea id="motivoCancelamento" placeholder="Ex: veículo indisponível, troca de data, etc."></textarea>
         <input type="hidden" id="cancelarIdHidden" />
@@ -332,11 +338,11 @@
     }
 
     const form = document.getElementById("formAgendamento");
-    const btnLimpar = document.getElementById("btnLimpar");
+    const btnLimparAg = document.getElementById("btnLimparAg");
     const btnSalvar = document.getElementById("btnSalvar");
     const codeBox = document.getElementById("codigoAgendamento");
 
-    btnLimpar.addEventListener("click", () => {
+    btnLimparAg.addEventListener("click", () => {
       form.reset();
       codeBox.style.display = "none";
       codeBox.innerHTML = "";
@@ -375,10 +381,20 @@
       btnSalvar.disabled = false;
     });
 
-    // ===== STATUS / BUSCA + CANCELAMENTO =====
+    // ===== STATUS / BUSCA + LIMPAR =====
     const resultadoBox = document.getElementById("resultadoBox");
     const modoBusca = document.getElementById("modoBusca");
     const buscarQ = document.getElementById("buscarQ");
+    const btnLimparStatus = document.getElementById("btnLimparStatus");
+
+    btnLimparStatus.addEventListener("click", () => {
+      modoBusca.value = "id";
+      buscarQ.value = "";
+      buscarQ.placeholder = "Ex: GTM-ABC123-XYZ789";
+      resultadoBox.style.display = "none";
+      resultadoBox.innerHTML = "";
+      buscarQ.focus();
+    });
 
     function chipClassFromItem(item){
       if (item.cancelado) return "status-chip cancel";
@@ -542,7 +558,6 @@
           return;
         }
 
-        // Recarrega a busca atual pra mostrar como CANCELADO
         buscar(ultimoSearch.mode, ultimoSearch.q);
         alert("✅ Solicitação cancelada com sucesso!");
       };
