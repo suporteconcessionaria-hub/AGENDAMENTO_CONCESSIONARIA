@@ -11,6 +11,7 @@
       --text:#0f172a; --muted:#64748b;
       --bg:#f3f6f8; --card:#ffffff; --line:#e5e7eb;
       --accent:#22c55e; --accent-2:#16a34a;
+      --danger:#dc2626; --danger-2:#b91c1c;
       --shadow: 0 10px 30px rgba(2,6,23,.08);
       --radius: 14px;
     }
@@ -56,18 +57,58 @@
     .btn{ border:0; border-radius:12px; padding:11px 14px; cursor:pointer; font-weight:750; font-size:13px; }
     .btn.primary{ background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#fff; }
     .btn.ghost{ background:#f1f5f9; border:1px solid var(--line); }
+    .btn.danger{ background:linear-gradient(180deg,var(--danger),var(--danger-2)); color:#fff; }
 
     .codebox{ display:none; margin-top:14px; padding:12px; border-radius:12px; background:#ecfeff; border:1px solid #67e8f9; font-weight:700; }
     .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
     .codebox .big{ font-size:18px; letter-spacing:.3px; }
 
-    .searchbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .searchbar input{ flex:1; min-width:240px; }
-    .result{ margin-top:14px; display:none; padding:14px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+    .searchbar{ display:grid; grid-template-columns:220px 1fr 140px; gap:10px; align-items:center; }
+    .result{ margin-top:14px; display:none; }
+    .result .hint{ color:var(--muted); font-size:13px; margin:0 0 10px; }
+
+    .item{
+      background:#fff; border:1px solid var(--line);
+      border-radius:14px; padding:14px; margin-top:10px;
+    }
+    .item-top{
+      display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;
+    }
     .status-chip{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; font-weight:800; font-size:13px; border:1px solid var(--line); background:#f8fafc; }
     .chip-dot{ width:10px;height:10px;border-radius:50%; background:#94a3b8; }
     .ok .chip-dot{ background: var(--accent); }
     .wait .chip-dot{ background: #f59e0b; }
+    .cancel .chip-dot{ background: var(--danger); }
+
+    .grid{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+      margin-top:10px;
+    }
+    .kv{
+      border:1px dashed var(--line);
+      border-radius:12px; padding:10px;
+      font-size:13px;
+    }
+    .kv b{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .kv span{ color:#0f172a; font-weight:700; }
+
+    /* Modal cancelamento */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(15,23,42,.55);
+      display:none; align-items:center; justify-content:center; padding:16px;
+      z-index:99999;
+    }
+    .modal{
+      width:min(560px, 100%);
+      background:#fff; border-radius:16px; border:1px solid var(--line);
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+      overflow:hidden;
+    }
+    .modal header{ padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal header h3{ margin:0; font-size:16px; }
+    .modal .content{ padding:16px; }
+    .modal .content p{ margin:0 0 10px; color:var(--muted); font-size:13px; }
+    .modal .footer{ padding:14px 16px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; }
 
     .whatsapp-float{ position:fixed; bottom:20px; right:20px; width:56px; height:56px; background:#25D366; border-radius:50%; box-shadow:0 8px 20px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; z-index:9999; text-decoration:none; }
     .whatsapp-float img{ width:28px; height:28px; }
@@ -75,6 +116,8 @@
     @media (max-width:980px){
       .sidebar{ width:240px; }
       .field,.field.col-4,.field.col-3,.field.col-2{ grid-column:span 12; }
+      .searchbar{ grid-template-columns:1fr; }
+      .grid{ grid-template-columns:1fr; }
     }
     @media (max-width:760px){
       .app{ flex-direction:column; }
@@ -214,15 +257,41 @@
         <section id="view-status" class="card" style="display:none;">
           <div class="card-body">
             <div class="searchbar">
-              <input id="buscarId" type="text" placeholder="Digite o código do agendamento (ID)" />
+              <select id="modoBusca">
+                <option value="id">Buscar por código (ID)</option>
+                <option value="placa">Buscar por placa</option>
+                <option value="municipio">Buscar por município/prefeitura</option>
+              </select>
+
+              <input id="buscarQ" type="text" placeholder="Digite o valor da busca" />
               <button class="btn primary" id="btnBuscar" type="button">Buscar</button>
             </div>
+
             <div id="resultadoBox" class="result"></div>
           </div>
         </section>
 
       </div>
     </main>
+  </div>
+
+  <!-- Modal Cancelamento -->
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <header>
+        <h3>Cancelar solicitação</h3>
+      </header>
+      <div class="content">
+        <p>Informe o motivo do cancelamento. Isso será gravado na planilha (coluna V) e a solicitação ficará em vermelho.</p>
+        <label>Motivo do cancelamento</label>
+        <textarea id="motivoCancelamento" placeholder="Ex: veículo indisponível, troca de data, etc."></textarea>
+        <input type="hidden" id="cancelarIdHidden" />
+      </div>
+      <div class="footer">
+        <button class="btn ghost" id="btnFecharModal" type="button">Voltar</button>
+        <button class="btn danger" id="btnConfirmarCancelamento" type="button">Confirmar cancelamento</button>
+      </div>
+    </div>
   </div>
 
   <iframe name="gtm_iframe" style="display:none;"></iframe>
@@ -247,7 +316,7 @@
         pageSub.textContent = "Preencha as informações do pedido de manutenção.";
       } else {
         pageTitle.textContent = "Status do Agendamento";
-        pageSub.textContent = "Consulte o status usando o código do agendamento (ID).";
+        pageSub.textContent = "Busque por código (ID), placa ou município/prefeitura.";
       }
       localStorage.setItem("gtm_view", name);
     }
@@ -306,81 +375,201 @@
       btnSalvar.disabled = false;
     });
 
+    // ===== STATUS / BUSCA + CANCELAMENTO =====
     const resultadoBox = document.getElementById("resultadoBox");
+    const modoBusca = document.getElementById("modoBusca");
+    const buscarQ = document.getElementById("buscarQ");
 
-    function renderResultado(data){
+    function chipClassFromItem(item){
+      if (item.cancelado) return "status-chip cancel";
+      const s = String(item.status || "").toUpperCase();
+      const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER");
+      return isWait ? "status-chip wait" : "status-chip ok";
+    }
+
+    function montarTextoAgendamento(item){
+      if (item.cancelado) {
+        const motivo = (item.motivoCancelamento || "").trim();
+        return `Solicitação <strong>cancelada</strong>${motivo ? ` — Motivo: <strong>${motivo}</strong>` : ""}.`;
+      }
+      const dataTxt = (item.dataAgendada || "").trim();
+      const horaTxt = (item.hora || "").trim();
+      if (dataTxt && horaTxt) return `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
+      if (dataTxt && !horaTxt) return `Agendamento para <strong>${dataTxt}</strong>.`;
+      return `Agendamento ainda não confirmado.`;
+    }
+
+    let ultimoSearch = { mode: "id", q: "" };
+
+    function renderLista(data){
       resultadoBox.style.display = "block";
+
       if(!data.ok){
-        resultadoBox.innerHTML = `<strong>❌ ${data.error || "Não encontrado"}</strong>`;
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ ${data.error || "Não encontrado"}</strong></p>`;
         return;
       }
 
-      const statusText = String(data.status || "").toUpperCase();
-      const isWait = statusText.includes("AGUARD") || statusText.includes("PEND") || statusText.includes("ESPER");
-      const chipClass = isWait ? "status-chip wait" : "status-chip ok";
+      const items = data.results || [];
+      const tituloModo = (data.mode === "id") ? "Código (ID)" : (data.mode === "placa" ? "Placa" : "Município/Prefeitura");
 
-      const dataTxt = (data.dataAgendada || "").trim();
-      const horaTxt = (data.hora || "").trim();
+      let html = `<p class="hint"><b>${items.length}</b> resultado(s) para <b>${tituloModo}</b>: <b>${data.q}</b></p>`;
 
-      let texto = "";
-      if (dataTxt && horaTxt) {
-        texto = `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
-      } else if (dataTxt && !horaTxt) {
-        texto = `Agendamento para <strong>${dataTxt}</strong>.`;
-      } else {
-        texto = `Agendamento ainda não confirmado.`;
-      }
+      items.forEach((item) => {
+        const chip = chipClassFromItem(item);
+        const texto = montarTextoAgendamento(item);
 
-      resultadoBox.innerHTML = `
-        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
-          <div class="${chipClass}">
-            <span class="chip-dot"></span>
-            <span>${data.status}</span>
+        const btnCancelar = (!item.cancelado)
+          ? `<button class="btn danger" type="button" onclick="abrirModalCancelamento('${item.id.replace(/'/g,"")}')">Cancelar</button>`
+          : ``;
+
+        html += `
+          <div class="item">
+            <div class="item-top">
+              <div class="${chip}">
+                <span class="chip-dot"></span>
+                <span>${item.cancelado ? "CANCELADO" : item.status}</span>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <div style="color:#64748b; font-size:12px;">
+                  Código: <strong>${item.id}</strong>
+                </div>
+                ${btnCancelar}
+              </div>
+            </div>
+
+            <div style="margin-top:10px; font-size:14px; color:#334155;">
+              ${texto}
+            </div>
+
+            <div class="grid">
+              <div class="kv"><b>Município</b><span>${item.municipio || "-"}</span></div>
+              <div class="kv"><b>Placa</b><span>${item.placa || "-"}</span></div>
+              <div class="kv"><b>Concessionária</b><span>${item.concessionaria || "-"}</span></div>
+
+              <div class="kv"><b>Tipo de serviço</b><span>${item.tipoServico || "-"}</span></div>
+              <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "-"}</span></div>
+              <div class="kv"><b>Descrição</b><span>${item.descricao || "-"}</span></div>
+            </div>
           </div>
-          <div style="color:#64748b; font-size:12px;">
-            Código: <strong>${data.id}</strong>
-          </div>
-        </div>
+        `;
+      });
 
-        <div style="margin-top:10px; font-size:14px; color:#334155;">
-          ${texto}
-        </div>
-      `;
+      resultadoBox.innerHTML = html;
     }
 
-    function buscarPorId(id){
+    function buscar(mode, q){
+      ultimoSearch = { mode, q };
       const cbName = "cb_" + Math.random().toString(36).slice(2);
+      const script = document.createElement("script");
+
       window[cbName] = (data) => {
-        renderResultado(data);
+        renderLista(data);
         delete window[cbName];
         script.remove();
       };
 
-      const url = `${WEB_APP_URL}?action=buscar&id=${encodeURIComponent(id)}&callback=${encodeURIComponent(cbName)}`;
-      const script = document.createElement("script");
+      const url = `${WEB_APP_URL}?action=buscar&mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}&callback=${encodeURIComponent(cbName)}`;
       script.src = url;
       script.onerror = () => {
         resultadoBox.style.display = "block";
-        resultadoBox.innerHTML = "<strong>❌ Erro ao buscar. Reimplante o Apps Script (Nova versão).</strong>";
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Falha ao buscar. Reimplante o Apps Script (Nova versão).</strong></p>`;
         delete window[cbName];
         script.remove();
       };
+
       document.body.appendChild(script);
     }
 
     document.getElementById("btnBuscar").addEventListener("click", () => {
-      const id = document.getElementById("buscarId").value.trim();
-      if(!id) return;
+      const mode = modoBusca.value;
+      const q = buscarQ.value.trim();
+      if(!q) return;
+
       resultadoBox.style.display = "block";
-      resultadoBox.innerHTML = "<strong>Buscando...</strong>";
-      buscarPorId(id);
+      resultadoBox.innerHTML = `<p class="hint"><strong>Buscando...</strong></p>`;
+      buscar(mode, q);
     });
 
-    document.getElementById("buscarId").addEventListener("keydown", (e) => {
+    buscarQ.addEventListener("keydown", (e) => {
       if(e.key === "Enter"){
         e.preventDefault();
         document.getElementById("btnBuscar").click();
       }
+    });
+
+    modoBusca.addEventListener("change", () => {
+      const m = modoBusca.value;
+      if (m === "id") buscarQ.placeholder = "Ex: GTM-ABC123-XYZ789";
+      if (m === "placa") buscarQ.placeholder = "Ex: ABC1D23";
+      if (m === "municipio") buscarQ.placeholder = "Ex: Várzea Grande";
+    });
+
+    // ===== MODAL CANCELAMENTO =====
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const motivoCancelamento = document.getElementById("motivoCancelamento");
+    const cancelarIdHidden = document.getElementById("cancelarIdHidden");
+    const btnFecharModal = document.getElementById("btnFecharModal");
+    const btnConfirmarCancelamento = document.getElementById("btnConfirmarCancelamento");
+
+    window.abrirModalCancelamento = function(id){
+      cancelarIdHidden.value = id;
+      motivoCancelamento.value = "";
+      modalBackdrop.style.display = "flex";
+      modalBackdrop.setAttribute("aria-hidden", "false");
+      motivoCancelamento.focus();
+    };
+
+    function fecharModal(){
+      modalBackdrop.style.display = "none";
+      modalBackdrop.setAttribute("aria-hidden", "true");
+    }
+
+    btnFecharModal.addEventListener("click", fecharModal);
+    modalBackdrop.addEventListener("click", (e) => {
+      if(e.target === modalBackdrop) fecharModal();
+    });
+
+    function cancelarNoScript(id, motivo){
+      const cbName = "cb_cancel_" + Math.random().toString(36).slice(2);
+      const script = document.createElement("script");
+
+      window[cbName] = (data) => {
+        delete window[cbName];
+        script.remove();
+
+        if(!data.ok){
+          alert("Erro: " + (data.error || "não foi possível cancelar."));
+          return;
+        }
+
+        // Recarrega a busca atual pra mostrar como CANCELADO
+        buscar(ultimoSearch.mode, ultimoSearch.q);
+        alert("✅ Solicitação cancelada com sucesso!");
+      };
+
+      const url = `${WEB_APP_URL}?action=cancelar&id=${encodeURIComponent(id)}&motivo=${encodeURIComponent(motivo)}&callback=${encodeURIComponent(cbName)}`;
+      script.src = url;
+      script.onerror = () => {
+        delete window[cbName];
+        script.remove();
+        alert("❌ Falha ao cancelar. Reimplante o Apps Script (Nova versão).");
+      };
+
+      document.body.appendChild(script);
+    }
+
+    btnConfirmarCancelamento.addEventListener("click", () => {
+      const id = cancelarIdHidden.value.trim();
+      const motivo = motivoCancelamento.value.trim();
+
+      if(!motivo){
+        alert("Informe o motivo do cancelamento.");
+        motivoCancelamento.focus();
+        return;
+      }
+
+      fecharModal();
+      cancelarNoScript(id, motivo);
     });
   </script>
 
