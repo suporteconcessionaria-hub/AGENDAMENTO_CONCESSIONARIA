@@ -319,8 +319,17 @@
       const isWait = statusText.includes("AGUARD") || statusText.includes("PEND") || statusText.includes("ESPER");
       const chipClass = isWait ? "status-chip wait" : "status-chip ok";
 
-      const dataTxt = data.dataAgendada || "data ainda não definida";
-      const horaTxt = data.hora || "horário ainda não definido";
+      const dataTxt = (data.dataAgendada || "").trim();
+      const horaTxt = (data.hora || "").trim();
+
+      let texto = "";
+      if (dataTxt && horaTxt) {
+        texto = `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
+      } else if (dataTxt && !horaTxt) {
+        texto = `Agendamento para <strong>${dataTxt}</strong>.`;
+      } else {
+        texto = `Agendamento ainda não confirmado.`;
+      }
 
       resultadoBox.innerHTML = `
         <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
@@ -334,7 +343,7 @@
         </div>
 
         <div style="margin-top:10px; font-size:14px; color:#334155;">
-          Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.
+          ${texto}
         </div>
       `;
     }
