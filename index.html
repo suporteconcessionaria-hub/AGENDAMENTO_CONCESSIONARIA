@@ -243,9 +243,10 @@
                 <textarea name="SERVICOS" required></textarea>
               </div>
 
+              <!-- ✅ N° OS AGORA É OPCIONAL -->
               <div class="field col-4">
-                <label>Nº OS</label>
-                <input name="N_OS" type="text" required />
+                <label>Nº OS (opcional)</label>
+                <input name="N_OS" type="text" placeholder="Opcional" />
               </div>
 
               <div class="actions">
@@ -463,7 +464,7 @@
               <div class="kv"><b>Concessionária</b><span>${item.concessionaria || "-"}</span></div>
 
               <div class="kv"><b>Tipo de serviço</b><span>${item.tipoServico || "-"}</span></div>
-              <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "-"}</span></div>
+              <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "Não informado"}</span></div>
               <div class="kv"><b>Descrição</b><span>${item.descricao || "-"}</span></div>
             </div>
           </div>
