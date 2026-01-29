@@ -58,6 +58,7 @@
     .btn.primary{ background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#fff; }
     .btn.ghost{ background:#f1f5f9; border:1px solid var(--line); }
     .btn.danger{ background:linear-gradient(180deg,var(--danger),var(--danger-2)); color:#fff; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
 
     .codebox{ display:none; margin-top:14px; padding:12px; border-radius:12px; background:#ecfeff; border:1px solid #67e8f9; font-weight:700; }
     .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
@@ -243,10 +244,16 @@
                 <textarea name="SERVICOS" required></textarea>
               </div>
 
-              <!-- ✅ N° OS AGORA É OPCIONAL -->
               <div class="field col-4">
                 <label>Nº OS (opcional)</label>
                 <input name="N_OS" type="text" placeholder="Opcional" />
+              </div>
+
+              <!-- Upload documento -->
+              <div class="field col-4">
+                <label>Documento do veículo (PDF ou foto)</label>
+                <input id="docVeiculo" type="file" accept="application/pdf,image/*" />
+                <small style="color:#64748b;">PDF, JPG, PNG… (até 15MB)</small>
               </div>
 
               <div class="actions">
@@ -282,28 +289,10 @@
     </main>
   </div>
 
-  <!-- Modal Cancelamento -->
-  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true">
-      <header>
-        <h3>Cancelar solicitação</h3>
-      </header>
-      <div class="content">
-        <p>Informe o motivo do cancelamento.</p>
-        <label>Motivo do cancelamento</label>
-        <textarea id="motivoCancelamento" placeholder="Ex: veículo indisponível, troca de data, etc."></textarea>
-        <input type="hidden" id="cancelarIdHidden" />
-      </div>
-      <div class="footer">
-        <button class="btn ghost" id="btnFecharModal" type="button">Voltar</button>
-        <button class="btn danger" id="btnConfirmarCancelamento" type="button">Confirmar cancelamento</button>
-      </div>
-    </div>
-  </div>
-
   <iframe name="gtm_iframe" style="display:none;"></iframe>
 
   <script>
+    // ✅ Seu Web App /exec
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxCgoNSmMbBgE0-DvWiPZPqEz-4EYTf5tJWs2orxTGugoJ8vmn7jDWI35zjVKRgfQ/exec";
 
     const buttons = document.querySelectorAll(".menu button");
@@ -342,6 +331,7 @@
     const btnLimparAg = document.getElementById("btnLimparAg");
     const btnSalvar = document.getElementById("btnSalvar");
     const codeBox = document.getElementById("codigoAgendamento");
+    const docInput = document.getElementById("docVeiculo");
 
     btnLimparAg.addEventListener("click", () => {
       form.reset();
@@ -349,7 +339,16 @@
       codeBox.innerHTML = "";
     });
 
-    form.addEventListener("submit", (e) => {
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result || "").replace(/^.*?,/, ""));
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const data = Object.fromEntries(new FormData(form).entries());
@@ -358,6 +357,21 @@
 
       btnSalvar.disabled = true;
 
+      // Upload opcional (até 15MB)
+      const file = docInput?.files?.[0];
+      if (file) {
+        const maxMB = 15;
+        if (file.size > maxMB * 1024 * 1024) {
+          alert(`Arquivo muito grande. Envie até ${maxMB}MB.`);
+          btnSalvar.disabled = false;
+          return;
+        }
+        data.DOC_BASE64 = await fileToBase64(file);
+        data.DOC_MIME = file.type || "application/octet-stream";
+        data.DOC_NAME = file.name || "documento";
+      }
+
+      // POST via iframe (evita CORS / Failed to fetch)
       const hiddenForm = document.createElement("form");
       hiddenForm.action = WEB_APP_URL;
       hiddenForm.method = "POST";
@@ -367,7 +381,7 @@
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = key;
-        input.value = data[key];
+        input.value = data[key] ?? "";
         hiddenForm.appendChild(input);
       });
 
@@ -375,6 +389,7 @@
       hiddenForm.submit();
       hiddenForm.remove();
 
+      // Só mostra o ID (sem detalhes técnicos)
       codeBox.style.display = "block";
       codeBox.innerHTML = `✅ Agendamento registrado.<br><span class="small">Código do agendamento:</span><br><span class="big">${idGerado}</span>`;
 
@@ -398,17 +413,12 @@
     });
 
     function chipClassFromItem(item){
-      if (item.cancelado) return "status-chip cancel";
       const s = String(item.status || "").toUpperCase();
-      const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER");
+      const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER") || !s;
       return isWait ? "status-chip wait" : "status-chip ok";
     }
 
     function montarTextoAgendamento(item){
-      if (item.cancelado) {
-        const motivo = (item.motivoCancelamento || "").trim();
-        return `Solicitação <strong>cancelada</strong>${motivo ? ` — Motivo: <strong>${motivo}</strong>` : ""}.`;
-      }
       const dataTxt = (item.dataAgendada || "").trim();
       const horaTxt = (item.hora || "").trim();
       if (dataTxt && horaTxt) return `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
@@ -416,13 +426,11 @@
       return `Agendamento ainda não confirmado.`;
     }
 
-    let ultimoSearch = { mode: "id", q: "" };
-
     function renderLista(data){
       resultadoBox.style.display = "block";
 
-      if(!data.ok){
-        resultadoBox.innerHTML = `<p class="hint"><strong>❌ ${data.error || "Não encontrado"}</strong></p>`;
+      if(!data || !data.ok){
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Não encontrado</strong></p>`;
         return;
       }
 
@@ -435,22 +443,19 @@
         const chip = chipClassFromItem(item);
         const texto = montarTextoAgendamento(item);
 
-        const btnCancelar = (!item.cancelado)
-          ? `<button class="btn danger" type="button" onclick="abrirModalCancelamento('${item.id.replace(/'/g,"")}')">Cancelar</button>`
-          : ``;
+        const docLink = item.documento
+          ? `<a href="${item.documento}" target="_blank" rel="noopener">Abrir documento</a>`
+          : `—`;
 
         html += `
           <div class="item">
             <div class="item-top">
               <div class="${chip}">
                 <span class="chip-dot"></span>
-                <span>${item.cancelado ? "CANCELADO" : item.status}</span>
+                <span>${item.status || "AGUARDANDO"}</span>
               </div>
-              <div style="display:flex; gap:10px; align-items:center;">
-                <div style="color:#64748b; font-size:12px;">
-                  Código: <strong>${item.id}</strong>
-                </div>
-                ${btnCancelar}
+              <div style="color:#64748b; font-size:12px;">
+                Código: <strong>${item.id || "-"}</strong>
               </div>
             </div>
 
@@ -461,10 +466,10 @@
             <div class="grid">
               <div class="kv"><b>Município</b><span>${item.municipio || "-"}</span></div>
               <div class="kv"><b>Placa</b><span>${item.placa || "-"}</span></div>
-              <div class="kv"><b>Concessionária</b><span>${item.concessionaria || "-"}</span></div>
+              <div class="kv"><b>Documento</b><span>${docLink}</span></div>
 
               <div class="kv"><b>Tipo de serviço</b><span>${item.tipoServico || "-"}</span></div>
-              <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "Não informado"}</span></div>
+              <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "-"}</span></div>
               <div class="kv"><b>Descrição</b><span>${item.descricao || "-"}</span></div>
             </div>
           </div>
@@ -474,27 +479,32 @@
       resultadoBox.innerHTML = html;
     }
 
-    function buscar(mode, q){
-      ultimoSearch = { mode, q };
+    function jsonp(url, onOk, onErr){
       const cbName = "cb_" + Math.random().toString(36).slice(2);
       const script = document.createElement("script");
 
       window[cbName] = (data) => {
-        renderLista(data);
         delete window[cbName];
         script.remove();
+        onOk(data);
       };
 
-      const url = `${WEB_APP_URL}?action=buscar&mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}&callback=${encodeURIComponent(cbName)}`;
-      script.src = url;
+      script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + encodeURIComponent(cbName);
       script.onerror = () => {
-        resultadoBox.style.display = "block";
-        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Falha ao buscar. Reimplante o Apps Script (Nova versão).</strong></p>`;
         delete window[cbName];
         script.remove();
+        onErr?.();
       };
 
       document.body.appendChild(script);
+    }
+
+    function buscar(mode, q){
+      const url = `${WEB_APP_URL}?action=buscar&mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}`;
+      jsonp(url, renderLista, () => {
+        resultadoBox.style.display = "block";
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Falha ao buscar. Verifique a implantação do Apps Script.</strong></p>`;
+      });
     }
 
     document.getElementById("btnBuscar").addEventListener("click", () => {
@@ -519,73 +529,6 @@
       if (m === "id") buscarQ.placeholder = "Ex: GTM-ABC123-XYZ789";
       if (m === "placa") buscarQ.placeholder = "Ex: ABC1D23";
       if (m === "municipio") buscarQ.placeholder = "Ex: Várzea Grande";
-    });
-
-    // ===== MODAL CANCELAMENTO =====
-    const modalBackdrop = document.getElementById("modalBackdrop");
-    const motivoCancelamento = document.getElementById("motivoCancelamento");
-    const cancelarIdHidden = document.getElementById("cancelarIdHidden");
-    const btnFecharModal = document.getElementById("btnFecharModal");
-    const btnConfirmarCancelamento = document.getElementById("btnConfirmarCancelamento");
-
-    window.abrirModalCancelamento = function(id){
-      cancelarIdHidden.value = id;
-      motivoCancelamento.value = "";
-      modalBackdrop.style.display = "flex";
-      modalBackdrop.setAttribute("aria-hidden", "false");
-      motivoCancelamento.focus();
-    };
-
-    function fecharModal(){
-      modalBackdrop.style.display = "none";
-      modalBackdrop.setAttribute("aria-hidden", "true");
-    }
-
-    btnFecharModal.addEventListener("click", fecharModal);
-    modalBackdrop.addEventListener("click", (e) => {
-      if(e.target === modalBackdrop) fecharModal();
-    });
-
-    function cancelarNoScript(id, motivo){
-      const cbName = "cb_cancel_" + Math.random().toString(36).slice(2);
-      const script = document.createElement("script");
-
-      window[cbName] = (data) => {
-        delete window[cbName];
-        script.remove();
-
-        if(!data.ok){
-          alert("Erro: " + (data.error || "não foi possível cancelar."));
-          return;
-        }
-
-        buscar(ultimoSearch.mode, ultimoSearch.q);
-        alert("✅ Solicitação cancelada com sucesso!");
-      };
-
-      const url = `${WEB_APP_URL}?action=cancelar&id=${encodeURIComponent(id)}&motivo=${encodeURIComponent(motivo)}&callback=${encodeURIComponent(cbName)}`;
-      script.src = url;
-      script.onerror = () => {
-        delete window[cbName];
-        script.remove();
-        alert("❌ Falha ao cancelar. Reimplante o Apps Script (Nova versão).");
-      };
-
-      document.body.appendChild(script);
-    }
-
-    btnConfirmarCancelamento.addEventListener("click", () => {
-      const id = cancelarIdHidden.value.trim();
-      const motivo = motivoCancelamento.value.trim();
-
-      if(!motivo){
-        alert("Informe o motivo do cancelamento.");
-        motivoCancelamento.focus();
-        return;
-      }
-
-      fecharModal();
-      cancelarNoScript(id, motivo);
     });
   </script>
 
