@@ -64,6 +64,7 @@
     .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
     .codebox .big{ font-size:18px; letter-spacing:.3px; }
 
+    /* Status */
     .searchbar{
       display:grid;
       grid-template-columns:220px 1fr 140px 140px;
@@ -85,10 +86,18 @@
     .wait .chip-dot{ background: #f59e0b; }
     .cancel .chip-dot{ background: var(--danger); }
 
-    .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; }
-    .kv{ border:1px dashed var(--line); border-radius:12px; padding:10px; font-size:13px; }
+    .grid{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+      margin-top:10px;
+    }
+    .kv{
+      border:1px dashed var(--line);
+      border-radius:12px; padding:10px;
+      font-size:13px;
+    }
     .kv b{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
     .kv span{ color:#0f172a; font-weight:700; }
+    .kv a{ font-weight:800; }
 
     /* Modal cancelamento */
     .modal-backdrop{
@@ -220,14 +229,26 @@
                 <input name="CONCESSIONARIA" type="text" required />
               </div>
 
+              <!-- ✅ NOVO: MODELO DO VEÍCULO -->
+              <div class="field col-4">
+                <label>Modelo do veículo</label>
+                <select name="MODELO_VEICULO" required>
+                  <option value="" selected disabled>Selecione</option>
+                  <option value="Carro">Carro</option>
+                  <option value="Ônibus/Caminhão">Ônibus/Caminhão</option>
+                  <option value="Maquinário">Maquinário</option>
+                </select>
+              </div>
+
               <div class="field col-4">
                 <label>Tipo de serviço</label>
+                <!-- ✅ Ordem alfabética -->
                 <select name="TIPO_SERVICO" required>
                   <option value="" selected disabled>Selecione</option>
-                  <option value="Revisão">Revisão</option>
-                  <option value="Manutenção">Manutenção</option>
                   <option value="Garantia">Garantia</option>
+                  <option value="Manutenção">Manutenção</option>
                   <option value="Outros">Outros</option>
+                  <option value="Revisão">Revisão</option>
                 </select>
               </div>
 
@@ -244,7 +265,7 @@
               <div class="field col-4">
                 <label>Documento do veículo (PDF ou foto)</label>
                 <input id="docVeiculo" type="file" accept="application/pdf,image/*" />
-                <small style="color:#64748b;">PDF, JPG, PNG… (até 15MB)</small>
+                <small style="color:#64748b;">PDF, JPG, PNG… (até 20MB)</small>
               </div>
 
               <div class="actions">
@@ -366,7 +387,7 @@
 
       const file = docInput?.files?.[0];
       if (file) {
-        const maxMB = 15;
+        const maxMB = 20;
         if (file.size > maxMB * 1024 * 1024) {
           alert(`Arquivo muito grande. Envie até ${maxMB}MB.`);
           btnSalvar.disabled = false;
@@ -377,7 +398,7 @@
         data.DOC_NAME = file.name || "documento";
       }
 
-      // POST via iframe (evita CORS)
+      // POST via iframe
       const hiddenForm = document.createElement("form");
       hiddenForm.action = WEB_APP_URL;
       hiddenForm.method = "POST";
@@ -402,7 +423,7 @@
       btnSalvar.disabled = false;
     });
 
-    // ===== STATUS / BUSCA + LIMPAR =====
+    // ===== STATUS / BUSCA =====
     const resultadoBox = document.getElementById("resultadoBox");
     const modoBusca = document.getElementById("modoBusca");
     const buscarQ = document.getElementById("buscarQ");
@@ -417,19 +438,29 @@
       buscarQ.focus();
     });
 
+    function getStatusTexto(item){
+      if (item.cancelado) return "CANCELADO";
+      const s = String(item.statusAgendamento || "").trim();
+      return s ? s : "AGUARDANDO CONFIRMAÇÃO";
+    }
+
     function chipClassFromItem(item){
       if (item.cancelado) return "status-chip cancel";
-      const s = String(item.status || "").toUpperCase();
-      const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER") || !s;
+      const s = getStatusTexto(item).toUpperCase();
+      const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER");
       return isWait ? "status-chip wait" : "status-chip ok";
     }
 
-    function montarTexto(item){
+    function montarTextoAgendamento(item){
       if (item.cancelado) {
-        const mot = (item.motivoCancelamento || "").trim();
-        return `Solicitação <strong>cancelada</strong>${mot ? ` — Motivo: <strong>${mot}</strong>` : ""}.`;
+        const motivo = (item.motivoCancelamento || "").trim();
+        return `Solicitação <strong>cancelada</strong>${motivo ? ` — Motivo: <strong>${motivo}</strong>` : ""}.`;
       }
-      return `Solicitação <strong>ativa</strong>.`;
+      const dataTxt = (item.dataAgendada || "").trim();
+      const horaTxt = (item.hora || "").trim();
+      if (dataTxt && horaTxt) return `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
+      if (dataTxt && !horaTxt) return `Agendamento para <strong>${dataTxt}</strong>.`;
+      return `Aguardando confirmação do agendamento.`;
     }
 
     let ultimoSearch = { mode: "id", q: "" };
@@ -449,36 +480,43 @@
 
       items.forEach((item) => {
         const chip = chipClassFromItem(item);
-        const docLink = item.documento
-          ? `<a href="${item.documento}" target="_blank" rel="noopener">Abrir documento</a>`
-          : `—`;
+        const statusTxt = getStatusTexto(item);
+        const texto = montarTextoAgendamento(item);
 
         const btnCancelar = (!item.cancelado)
           ? `<button class="btn danger" type="button" onclick="abrirModalCancelamento('${String(item.id).replace(/'/g,"")}')">Cancelar</button>`
           : ``;
+
+        const docLink = item.documento
+          ? `<a href="${item.documento}" target="_blank" rel="noopener">Abrir documento</a>`
+          : `—`;
 
         html += `
           <div class="item">
             <div class="item-top">
               <div class="${chip}">
                 <span class="chip-dot"></span>
-                <span>${item.cancelado ? "CANCELADO" : (item.status || "AGUARDANDO")}</span>
+                <span>${statusTxt}</span>
               </div>
               <div style="display:flex; gap:10px; align-items:center;">
                 <div style="color:#64748b; font-size:12px;">
-                  Código: <strong>${item.id || "-"}</strong>
+                  Código: <strong>${item.id}</strong>
                 </div>
                 ${btnCancelar}
               </div>
             </div>
 
             <div style="margin-top:10px; font-size:14px; color:#334155;">
-              ${montarTexto(item)}
+              ${texto}
             </div>
 
             <div class="grid">
               <div class="kv"><b>Município</b><span>${item.municipio || "-"}</span></div>
+              <div class="kv"><b>UF</b><span>${item.uf || "-"}</span></div>
               <div class="kv"><b>Placa</b><span>${item.placa || "-"}</span></div>
+
+              <div class="kv"><b>Concessionária</b><span>${item.concessionaria || "-"}</span></div>
+              <div class="kv"><b>Modelo do veículo</b><span>${item.modeloVeiculo || "-"}</span></div>
               <div class="kv"><b>Documento</b><span>${docLink}</span></div>
 
               <div class="kv"><b>Tipo de serviço</b><span>${item.tipoServico || "-"}</span></div>
