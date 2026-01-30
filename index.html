@@ -58,7 +58,6 @@
     .btn.primary{ background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#fff; }
     .btn.ghost{ background:#f1f5f9; border:1px solid var(--line); }
     .btn.danger{ background:linear-gradient(180deg,var(--danger),var(--danger-2)); color:#fff; }
-    .btn:disabled{ opacity:.6; cursor:not-allowed; }
 
     .codebox{ display:none; margin-top:14px; padding:12px; border-radius:12px; background:#ecfeff; border:1px solid #67e8f9; font-weight:700; }
     .codebox .small{ font-size:13px; font-weight:500; opacity:.9; }
@@ -97,7 +96,6 @@
     }
     .kv b{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
     .kv span{ color:#0f172a; font-weight:700; }
-    .kv a{ font-weight:800; }
 
     /* Modal cancelamento */
     .modal-backdrop{
@@ -119,6 +117,8 @@
 
     .whatsapp-float{ position:fixed; bottom:20px; right:20px; width:56px; height:56px; background:#25D366; border-radius:50%; box-shadow:0 8px 20px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; z-index:9999; text-decoration:none; }
     .whatsapp-float img{ width:28px; height:28px; }
+
+    .file-note{ font-size:12px; color:var(--muted); margin-top:4px; }
 
     @media (max-width:980px){
       .sidebar{ width:240px; }
@@ -229,7 +229,7 @@
                 <input name="CONCESSIONARIA" type="text" required />
               </div>
 
-              <!-- ✅ NOVO: MODELO DO VEÍCULO -->
+              <!-- ✅ NOVO: MODELO VEÍCULO (coluna O) -->
               <div class="field col-4">
                 <label>Modelo do veículo</label>
                 <select name="MODELO_VEICULO" required>
@@ -240,9 +240,9 @@
                 </select>
               </div>
 
+              <!-- ✅ ORDEM ALFABÉTICA -->
               <div class="field col-4">
                 <label>Tipo de serviço</label>
-                <!-- ✅ Ordem alfabética -->
                 <select name="TIPO_SERVICO" required>
                   <option value="" selected disabled>Selecione</option>
                   <option value="Garantia">Garantia</option>
@@ -252,20 +252,22 @@
                 </select>
               </div>
 
-              <div class="field col-12">
-                <label>Descrição</label>
-                <textarea name="SERVICOS" required></textarea>
-              </div>
-
+              <!-- Nº OS NÃO obrigatório -->
               <div class="field col-4">
                 <label>Nº OS (opcional)</label>
-                <input name="N_OS" type="text" placeholder="Opcional" />
+                <input name="N_OS" type="text" />
               </div>
 
-              <div class="field col-4">
-                <label>Documento do veículo (PDF ou foto)</label>
-                <input id="docVeiculo" type="file" accept="application/pdf,image/*" />
-                <small style="color:#64748b;">PDF, JPG, PNG… (até 20MB)</small>
+              <div class="field col-12">
+                <label>Descrição</label>
+                <textarea name="SERVICOS" required placeholder="Descreva o serviço..."></textarea>
+              </div>
+
+              <!-- Upload (vai pro Drive e link na coluna P) -->
+              <div class="field col-12">
+                <label>Documento do veículo (PDF ou imagem)</label>
+                <input id="docInput" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" />
+                <div class="file-note">Tamanho máximo recomendado: até 15 MB (ajusto no script se precisar mais).</div>
               </div>
 
               <div class="actions">
@@ -323,6 +325,7 @@
   <iframe name="gtm_iframe" style="display:none;"></iframe>
 
   <script>
+    // ✅ URL do seu WebApp
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxCgoNSmMbBgE0-DvWiPZPqEz-4EYTf5tJWs2orxTGugoJ8vmn7jDWI35zjVKRgfQ/exec";
 
     const buttons = document.querySelectorAll(".menu button");
@@ -336,6 +339,7 @@
     function setView(name){
       Object.keys(views).forEach(v => views[v].style.display = (v === name ? "block" : "none"));
       buttons.forEach(b => b.classList.toggle("active", b.dataset.view === name));
+
       if(name === "agendamento"){
         pageTitle.textContent = "Agendamento Concessionária";
         pageSub.textContent = "Preencha as informações do pedido de manutenção.";
@@ -345,6 +349,7 @@
       }
       localStorage.setItem("gtm_view", name);
     }
+
     buttons.forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     const saved = localStorage.getItem("gtm_view");
     if(saved && views[saved]) setView(saved);
@@ -355,26 +360,33 @@
       return `GTM-${t}-${r}`;
     }
 
+    // ---- Upload base64 ----
+    const docInput = document.getElementById("docInput");
+
+    async function fileToBase64(file){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = String(reader.result || "");
+          // res: data:mime;base64,XXXX
+          const base64 = res.split(",")[1] || "";
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
     const form = document.getElementById("formAgendamento");
     const btnLimparAg = document.getElementById("btnLimparAg");
     const btnSalvar = document.getElementById("btnSalvar");
     const codeBox = document.getElementById("codigoAgendamento");
-    const docInput = document.getElementById("docVeiculo");
 
     btnLimparAg.addEventListener("click", () => {
       form.reset();
       codeBox.style.display = "none";
       codeBox.innerHTML = "";
     });
-
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(String(fr.result || "").replace(/^.*?,/, ""));
-        fr.onerror = reject;
-        fr.readAsDataURL(file);
-      });
-    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -383,22 +395,23 @@
       const idGerado = gerarId();
       data.ID = idGerado;
 
-      btnSalvar.disabled = true;
-
-      const file = docInput?.files?.[0];
+      // anexos (opcional)
+      const file = docInput.files && docInput.files[0] ? docInput.files[0] : null;
       if (file) {
-        const maxMB = 20;
-        if (file.size > maxMB * 1024 * 1024) {
-          alert(`Arquivo muito grande. Envie até ${maxMB}MB.`);
-          btnSalvar.disabled = false;
+        // ajuste simples de limite (15MB)
+        const max = 15 * 1024 * 1024;
+        if (file.size > max) {
+          alert("Arquivo muito grande. Use no máximo 15MB (posso aumentar no script depois).");
           return;
         }
-        data.DOC_BASE64 = await fileToBase64(file);
+        data.DOC_NAME = file.name;
         data.DOC_MIME = file.type || "application/octet-stream";
-        data.DOC_NAME = file.name || "documento";
+        data.DOC_BASE64 = await fileToBase64(file);
       }
 
-      // POST via iframe
+      btnSalvar.disabled = true;
+
+      // envia oculto (evita mostrar retorno)
       const hiddenForm = document.createElement("form");
       hiddenForm.action = WEB_APP_URL;
       hiddenForm.method = "POST";
@@ -408,7 +421,7 @@
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = key;
-        input.value = data[key] ?? "";
+        input.value = data[key];
         hiddenForm.appendChild(input);
       });
 
@@ -423,7 +436,7 @@
       btnSalvar.disabled = false;
     });
 
-    // ===== STATUS / BUSCA =====
+    // ===== STATUS / BUSCA + LIMPAR =====
     const resultadoBox = document.getElementById("resultadoBox");
     const modoBusca = document.getElementById("modoBusca");
     const buscarQ = document.getElementById("buscarQ");
@@ -438,15 +451,9 @@
       buscarQ.focus();
     });
 
-    function getStatusTexto(item){
-      if (item.cancelado) return "CANCELADO";
-      const s = String(item.statusAgendamento || "").trim();
-      return s ? s : "AGUARDANDO CONFIRMAÇÃO";
-    }
-
     function chipClassFromItem(item){
       if (item.cancelado) return "status-chip cancel";
-      const s = getStatusTexto(item).toUpperCase();
+      const s = String(item.statusAgendamento || "").toUpperCase();
       const isWait = s.includes("AGUARD") || s.includes("PEND") || s.includes("ESPER");
       return isWait ? "status-chip wait" : "status-chip ok";
     }
@@ -456,11 +463,14 @@
         const motivo = (item.motivoCancelamento || "").trim();
         return `Solicitação <strong>cancelada</strong>${motivo ? ` — Motivo: <strong>${motivo}</strong>` : ""}.`;
       }
+      const s = String(item.statusAgendamento || "").trim();
       const dataTxt = (item.dataAgendada || "").trim();
       const horaTxt = (item.hora || "").trim();
+
+      if (!s || s.toUpperCase().includes("AGUARD")) return `Aguardando confirmação do agendamento.`;
       if (dataTxt && horaTxt) return `Agendamento para <strong>${dataTxt}</strong> às <strong>${horaTxt}</strong>.`;
       if (dataTxt && !horaTxt) return `Agendamento para <strong>${dataTxt}</strong>.`;
-      return `Aguardando confirmação do agendamento.`;
+      return `Status: <strong>${s}</strong>.`;
     }
 
     let ultimoSearch = { mode: "id", q: "" };
@@ -468,35 +478,37 @@
     function renderLista(data){
       resultadoBox.style.display = "block";
 
-      if(!data || !data.ok){
-        resultadoBox.innerHTML = `<p class="hint"><strong>❌ ${data?.error || "Não encontrado"}</strong></p>`;
+      if(!data.ok){
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ ${data.error || "Não encontrado"}</strong></p>`;
         return;
       }
 
       const items = data.results || [];
+      if (!items.length) {
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Nenhum resultado encontrado.</strong></p>`;
+        return;
+      }
+
       const tituloModo = (data.mode === "id") ? "Código (ID)" : (data.mode === "placa" ? "Placa" : "Município/Prefeitura");
 
       let html = `<p class="hint"><b>${items.length}</b> resultado(s) para <b>${tituloModo}</b>: <b>${data.q}</b></p>`;
 
       items.forEach((item) => {
         const chip = chipClassFromItem(item);
-        const statusTxt = getStatusTexto(item);
         const texto = montarTextoAgendamento(item);
 
         const btnCancelar = (!item.cancelado)
           ? `<button class="btn danger" type="button" onclick="abrirModalCancelamento('${String(item.id).replace(/'/g,"")}')">Cancelar</button>`
           : ``;
 
-        const docLink = item.documento
-          ? `<a href="${item.documento}" target="_blank" rel="noopener">Abrir documento</a>`
-          : `—`;
+        const doc = item.documento ? `<a href="${item.documento}" target="_blank" rel="noopener">Abrir documento</a>` : "-";
 
         html += `
           <div class="item">
             <div class="item-top">
               <div class="${chip}">
                 <span class="chip-dot"></span>
-                <span>${statusTxt}</span>
+                <span>${item.cancelado ? "CANCELADO" : (item.statusAgendamento || "AGUARDANDO CONFIRMAÇÃO")}</span>
               </div>
               <div style="display:flex; gap:10px; align-items:center;">
                 <div style="color:#64748b; font-size:12px;">
@@ -517,11 +529,11 @@
 
               <div class="kv"><b>Concessionária</b><span>${item.concessionaria || "-"}</span></div>
               <div class="kv"><b>Modelo do veículo</b><span>${item.modeloVeiculo || "-"}</span></div>
-              <div class="kv"><b>Documento</b><span>${docLink}</span></div>
-
               <div class="kv"><b>Tipo de serviço</b><span>${item.tipoServico || "-"}</span></div>
+
               <div class="kv"><b>Nº OS</b><span>${item.numeroOS || "-"}</span></div>
               <div class="kv"><b>Descrição</b><span>${item.descricao || "-"}</span></div>
+              <div class="kv"><b>Documento</b><span>${doc}</span></div>
             </div>
           </div>
         `;
@@ -530,39 +542,34 @@
       resultadoBox.innerHTML = html;
     }
 
-    function jsonp(url, onOk, onErr){
+    function buscar(mode, q){
+      ultimoSearch = { mode, q };
       const cbName = "cb_" + Math.random().toString(36).slice(2);
       const script = document.createElement("script");
 
       window[cbName] = (data) => {
+        renderLista(data);
         delete window[cbName];
         script.remove();
-        onOk(data);
       };
 
-      script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + encodeURIComponent(cbName);
+      const url = `${WEB_APP_URL}?action=buscar&mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}&callback=${encodeURIComponent(cbName)}`;
+      script.src = url;
       script.onerror = () => {
+        resultadoBox.style.display = "block";
+        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Falha ao buscar. Verifique se você reimplantou o Apps Script (Nova versão).</strong></p>`;
         delete window[cbName];
         script.remove();
-        onErr?.();
       };
 
       document.body.appendChild(script);
-    }
-
-    function buscar(mode, q){
-      ultimoSearch = { mode, q };
-      const url = `${WEB_APP_URL}?action=buscar&mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}`;
-      jsonp(url, renderLista, () => {
-        resultadoBox.style.display = "block";
-        resultadoBox.innerHTML = `<p class="hint"><strong>❌ Falha ao buscar. Reimplante o Apps Script (Nova versão).</strong></p>`;
-      });
     }
 
     document.getElementById("btnBuscar").addEventListener("click", () => {
       const mode = modoBusca.value;
       const q = buscarQ.value.trim();
       if(!q) return;
+
       resultadoBox.style.display = "block";
       resultadoBox.innerHTML = `<p class="hint"><strong>Buscando...</strong></p>`;
       buscar(mode, q);
@@ -608,27 +615,43 @@
     });
 
     function cancelarNoScript(id, motivo){
-      const url = `${WEB_APP_URL}?action=cancelar&id=${encodeURIComponent(id)}&motivo=${encodeURIComponent(motivo)}`;
-      jsonp(url, (data) => {
-        if(!data || !data.ok){
-          alert("Erro: " + (data?.error || "não foi possível cancelar."));
+      const cbName = "cb_cancel_" + Math.random().toString(36).slice(2);
+      const script = document.createElement("script");
+
+      window[cbName] = (data) => {
+        delete window[cbName];
+        script.remove();
+
+        if(!data.ok){
+          alert("Erro: " + (data.error || "não foi possível cancelar."));
           return;
         }
-        alert("✅ Solicitação cancelada com sucesso!");
+
         buscar(ultimoSearch.mode, ultimoSearch.q);
-      }, () => {
+        alert("✅ Solicitação cancelada com sucesso!");
+      };
+
+      const url = `${WEB_APP_URL}?action=cancelar&id=${encodeURIComponent(id)}&motivo=${encodeURIComponent(motivo)}&callback=${encodeURIComponent(cbName)}`;
+      script.src = url;
+      script.onerror = () => {
+        delete window[cbName];
+        script.remove();
         alert("❌ Falha ao cancelar. Reimplante o Apps Script (Nova versão).");
-      });
+      };
+
+      document.body.appendChild(script);
     }
 
     btnConfirmarCancelamento.addEventListener("click", () => {
       const id = cancelarIdHidden.value.trim();
       const motivo = motivoCancelamento.value.trim();
+
       if(!motivo){
         alert("Informe o motivo do cancelamento.");
         motivoCancelamento.focus();
         return;
       }
+
       fecharModal();
       cancelarNoScript(id, motivo);
     });
